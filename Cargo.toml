@@ -15,6 +15,8 @@ leptos_axum = { version = "0.8", optional = true }
 leptos_router = { version = "0.8" }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"], optional = true }
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"], optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
 [features]
@@ -29,6 +31,8 @@ ssr = [
     "dep:leptos_axum",
     "dep:dotenvy",
     "dep:sqlx",
+    "dep:tracing",
+    "dep:tracing-subscriber",
     "leptos/ssr",
     "leptos_router/ssr",
 ]
