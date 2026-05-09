@@ -1,4 +1,5 @@
-use crate::server::todos::{add_todo, list_todos};
+use crate::server::todos::{add_todo, delete_todo, list_todos, toggle_todo};
+use crate::todo::Todo;
 use leptos::prelude::*;
 use leptos_router::{
     components::{Route, Router, Routes},
@@ -41,11 +42,13 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     let (todo_refresh, set_todo_refresh) = signal(0_u64);
     let todos = Resource::new(move || todo_refresh.get(), |_| list_todos(None));
-    let todo_count = move || {
+    let todo_items = Signal::derive(move || {
         todos.get()
             .and_then(Result::ok)
-            .map(|todos| todos.len())
-            .unwrap_or(0)
+            .unwrap_or_default()
+    });
+    let todo_count = move || {
+        todo_items.with(|items| items.len())
     };
 
     view! {
@@ -54,7 +57,7 @@ fn HomePage() -> impl IntoView {
             <section class="main">
                 <input id="toggle-all" class="toggle-all" type="checkbox"/>
                 <label for="toggle-all">"Mark all as complete"</label>
-                <ul class="todo-list"></ul>
+                <TodoList items=todo_items refresh_list=set_todo_refresh/>
             </section>
             <footer class="footer">
                 <span class="todo-count">
@@ -112,5 +115,67 @@ fn Header(refresh_list: WriteSignal<u64>) -> impl IntoView {
                 on:keydown=on_keydown
             />
         </header>
+    }
+}
+
+#[component]
+fn TodoList(
+    #[prop(into)] items: Signal<Vec<Todo>>,
+    refresh_list: WriteSignal<u64>,
+) -> impl IntoView {
+    view! {
+        <ul class="todo-list">
+            <For
+                each=move || items.get()
+                key=|todo| todo.id
+                let:todo
+            >
+                <TodoItem todo refresh_list=refresh_list/>
+            </For>
+        </ul>
+    }
+}
+
+#[component]
+fn TodoItem(todo: Todo, refresh_list: WriteSignal<u64>) -> impl IntoView {
+    let toggle = {
+        let todo = todo.clone();
+        move |_| {
+            let id = todo.id;
+            let completed = !todo.completed;
+
+            leptos::task::spawn_local(async move {
+                if toggle_todo(id, completed).await.is_ok() {
+                    refresh_list.update(|value| *value += 1);
+                }
+            });
+        }
+    };
+
+    let destroy = move |_| {
+        let id = todo.id;
+
+        leptos::task::spawn_local(async move {
+            if delete_todo(id).await.is_ok() {
+                refresh_list.update(|value| *value += 1);
+            }
+        });
+    };
+
+    let item_class = if todo.completed { "completed" } else { "" };
+
+    view! {
+        <li class=item_class>
+            <div class="view">
+                <input
+                    class="toggle"
+                    type="checkbox"
+                    prop:checked=todo.completed
+                    on:change=toggle
+                />
+                <label>{todo.title}</label>
+                <button class="destroy" on:click=destroy></button>
+            </div>
+        </li>
     }
 }
