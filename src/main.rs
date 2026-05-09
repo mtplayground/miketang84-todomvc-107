@@ -59,6 +59,19 @@ async fn init_database_pool() -> Result<SqlitePool, Box<dyn std::error::Error>> 
 }
 
 #[cfg(feature = "ssr")]
+fn load_env_file() -> Result<(), Box<dyn std::error::Error>> {
+    match dotenvy::dotenv() {
+        Ok(_) => Ok(()),
+        Err(dotenvy::Error::Io(error))
+            if error.kind() == io::ErrorKind::NotFound =>
+        {
+            Ok(())
+        }
+        Err(error) => Err(Box::new(error)),
+    }
+}
+
+#[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use axum::Router;
@@ -67,6 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use miketang84_todomvc_107::app::{shell, App};
 
+    load_env_file()?;
     let conf = get_configuration(None)?;
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
