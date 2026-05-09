@@ -127,6 +127,70 @@ pub async fn edit_todo(id: i64, title: String) -> Result<(), ServerFnError> {
     }
 }
 
+#[server]
+pub async fn delete_todo(id: i64) -> Result<(), ServerFnError> {
+    #[cfg(feature = "ssr")]
+    {
+        use crate::repository::todos as repository;
+
+        let pool = todo_pool()?;
+        return repository::delete(&pool, id).await.map_err(ServerFnError::from);
+    }
+
+    #[cfg(not(feature = "ssr"))]
+    {
+        let _ = id;
+        Err(ServerFnError::new(
+            "delete_todo can only be called from the server runtime",
+        ))
+    }
+}
+
+#[server]
+pub async fn clear_completed() -> Result<(), ServerFnError> {
+    #[cfg(feature = "ssr")]
+    {
+        use crate::repository::todos as repository;
+
+        let pool = todo_pool()?;
+        repository::delete_completed(&pool)
+            .await
+            .map_err(|error| ServerFnError::new(error.to_string()))?;
+
+        return Ok(());
+    }
+
+    #[cfg(not(feature = "ssr"))]
+    {
+        Err(ServerFnError::new(
+            "clear_completed can only be called from the server runtime",
+        ))
+    }
+}
+
+#[server]
+pub async fn toggle_all(completed: bool) -> Result<(), ServerFnError> {
+    #[cfg(feature = "ssr")]
+    {
+        use crate::repository::todos as repository;
+
+        let pool = todo_pool()?;
+        repository::set_all_completed(&pool, completed)
+            .await
+            .map_err(|error| ServerFnError::new(error.to_string()))?;
+
+        return Ok(());
+    }
+
+    #[cfg(not(feature = "ssr"))]
+    {
+        let _ = completed;
+        Err(ServerFnError::new(
+            "toggle_all can only be called from the server runtime",
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{normalize_title, normalize_title_or_none};
