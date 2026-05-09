@@ -1,6 +1,8 @@
 #[cfg(feature = "ssr")]
 use axum::extract::FromRef;
 #[cfg(feature = "ssr")]
+use axum::http::StatusCode;
+#[cfg(feature = "ssr")]
 use leptos::{config::LeptosOptions, context::provide_context};
 #[cfg(feature = "ssr")]
 use sqlx::{
@@ -106,9 +108,14 @@ fn init_tracing() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(feature = "ssr")]
+async fn healthz() -> StatusCode {
+    StatusCode::OK
+}
+
+#[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use axum::Router;
+    use axum::{routing::get, Router};
     use leptos::config::get_configuration;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use miketang84_todomvc_107::app::{shell, App};
@@ -125,6 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = app_state.pool.clone();
 
     let app = Router::new()
+        .route("/healthz", get(healthz))
         .leptos_routes_with_context(&app_state, routes, move || {
             provide_context(pool.clone());
         }, {
