@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: sqlite://data/todomvc.db
+      LEPTOS_SITE_ADDR: 0.0.0.0:8080
+      LEPTOS_SITE_ROOT: site
+      RUST_LOG: info
+    ports:
+      - "8080:8080"
+    volumes:
+      - todomvc-data:/app/data
+
+volumes:
+  todomvc-data:

@@ -1,0 +1,8 @@
+target
+.git
+.claude
+.gh_token
+.progress
+.db_decision
+.env
+data
