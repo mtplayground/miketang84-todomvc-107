@@ -1,3 +1,4 @@
+use crate::server::todos::{add_todo, list_todos};
 use leptos::prelude::*;
 use leptos_router::{
     components::{Route, Router, Routes},
@@ -38,16 +39,18 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn HomePage() -> impl IntoView {
+    let (todo_refresh, set_todo_refresh) = signal(0_u64);
+    let todos = Resource::new(move || todo_refresh.get(), |_| list_todos(None));
+    let todo_count = move || {
+        todos.get()
+            .and_then(Result::ok)
+            .map(|todos| todos.len())
+            .unwrap_or(0)
+    };
+
     view! {
         <section class="todoapp">
-            <header class="header">
-                <h1>"todos"</h1>
-                <input
-                    class="new-todo"
-                    placeholder="What needs to be done?"
-                    autofocus
-                />
-            </header>
+            <Header refresh_list=set_todo_refresh/>
             <section class="main">
                 <input id="toggle-all" class="toggle-all" type="checkbox"/>
                 <label for="toggle-all">"Mark all as complete"</label>
@@ -55,7 +58,7 @@ fn HomePage() -> impl IntoView {
             </section>
             <footer class="footer">
                 <span class="todo-count">
-                    <strong>"0"</strong>
+                    <strong>{move || todo_count().to_string()}</strong>
                     " item left"
                 </span>
                 <ul class="filters">
@@ -74,5 +77,40 @@ fn HomePage() -> impl IntoView {
                 <a href="http://todomvc.com">"TodoMVC"</a>
             </p>
         </footer>
+    }
+}
+
+#[component]
+fn Header(refresh_list: WriteSignal<u64>) -> impl IntoView {
+    let (title, set_title) = signal(String::new());
+
+    let on_keydown = move |ev: leptos::ev::KeyboardEvent| {
+        if ev.key() != "Enter" {
+            return;
+        }
+
+        let next_title = title.get_untracked();
+        let set_title = set_title;
+
+        leptos::task::spawn_local(async move {
+            if add_todo(next_title).await.is_ok() {
+                set_title.set(String::new());
+                refresh_list.update(|value| *value += 1);
+            }
+        });
+    };
+
+    view! {
+        <header class="header">
+            <h1>"todos"</h1>
+            <input
+                class="new-todo"
+                placeholder="What needs to be done?"
+                autofocus
+                prop:value=move || title.get()
+                on:input=move |ev| set_title.set(event_target_value(&ev))
+                on:keydown=on_keydown
+            />
+        </header>
     }
 }
