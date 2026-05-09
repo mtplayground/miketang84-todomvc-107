@@ -1475,6 +1475,7 @@ dependencies = [
  "leptos",
  "leptos_axum",
  "leptos_router",
+ "serde",
  "sqlx",
  "tokio",
  "tracing",
