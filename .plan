@@ -1,0 +1,107 @@
+Architecture plan for mtplayground/miketang84-todomvc-107
+
+Project shape
+- Use a Leptos full-stack app generated with cargo-leptos, with Axum as the server runtime.
+- Keep one crate with SSR + hydration enabled rather than splitting frontend/backend crates. That keeps the shared Todo types and server functions in one place and fits the issue sequence.
+- Use SQLite through SQLx with a pooled connection stored in Axum state and injected into Leptos server functions through context.
+
+Proposed file/module structure
+- Cargo.toml
+  Leptos, Axum, Tokio, SQLx/sqlite, tracing, dotenvy, serde, thiserror, tower-http, http.
+- src/main.rs
+  Server bootstrap, env loading, tracing init, DB pool creation, Axum router, health route, Leptos routes.
+- src/lib.rs
+  App shell, route registration, hydration entry points, shared exports.
+- src/app.rs
+  Top-level Leptos app and layout.
+- src/components/
+  new_todo.rs, todo_item.rs, todo_list.rs, footer.rs, toggle_all.rs, mod.rs.
+- src/domain/
+  todo.rs for Todo model, filter enum, request/response payloads, validation helpers, mod.rs.
+- src/repository/
+  todos.rs for SQLx queries and persistence helpers, mod.rs.
+- src/server/
+  todos.rs for Leptos server functions, mod.rs.
+- src/config.rs
+  Environment parsing and app config.
+- src/error.rs
+  App error type mapped from SQLx/validation/not-found cases.
+- src/state.rs
+  Shared app state containing SqlitePool and config.
+- style/
+  todomvc.css or imported official CSS asset and any minimal overrides.
+- migrations/
+  SQLx migrations, starting with todos table creation.
+- public/
+  Static assets if cargo-leptos template uses a public dir.
+- .env.example
+  DATABASE_URL, RUST_LOG, LEPTOS_SITE_ADDR and any cargo-leptos runtime variables actually needed.
+- Dockerfile and compose.yaml
+  Multi-stage build using cargo-leptos build for production image.
+
+Shared types
+- Todo
+  id: i64
+  title: String
+  completed: bool
+  created_at: Option<OffsetDateTime/String> only if needed by schema; avoid adding fields not used by TodoMVC.
+- TodoFilter enum
+  All, Active, Completed with hash conversion helpers.
+- Server payloads
+  AddTodoInput { title }
+  EditTodoInput { id, title }
+  ToggleTodoInput { id, completed }
+  DeleteTodoInput { id }
+  Bulk action inputs for clear_completed and toggle_all.
+- Result types
+  Server functions return Vec<Todo>, Todo, (), or lightweight aggregate structs depending on UI needs.
+
+Database design
+- Single todos table:
+  id integer primary key autoincrement
+  title text not null
+  completed integer not null default 0
+- Keep schema minimal for TodoMVC conformance. Timestamps are optional and can be skipped unless needed later.
+- Use SQLx migrations rather than ad hoc startup DDL once migrations are added. Bootstrap should still create/open the SQLite database path and run migrations on startup.
+
+Issue dependency order
+- Foundation:
+  #1 cargo-leptos/Axum scaffold
+  #2 SQLx + SQLite bootstrap
+  #3 env vars and .env.example
+  #4 tracing/logging
+  #5 health route
+- Data layer:
+  #6 todos migration
+  #7 Todo model/shared types
+  #8 repository functions
+- Server API:
+  #9 list_todos
+  #10 add_todo
+  #11 toggle_todo/edit_todo
+  #12 delete_todo/clear_completed/toggle_all
+- UI shell:
+  #13 TodoMVC CSS and base layout
+  #14 new-todo input
+  #15 todo list and items
+  #16 inline edit
+  #17 footer/filter/clear-completed
+  #18 toggle-all checkbox
+  #19 hash-based filter routing
+- Delivery and polish:
+  #20 Dockerfile + compose
+  #21 README
+  #22 TodoMVC conformance pass
+
+Key design decisions
+- Prefer server functions over a separate JSON REST API. The issue list already centers on Leptos server functions, and this keeps types shared and implementation smaller.
+- Keep repository code free of Leptos types. Repository functions should take a SqlitePool or executor plus domain inputs and return domain models.
+- Centralize validation rules in domain/server helpers:
+  trim titles, reject empty titles after trim, preserve TodoMVC editing semantics.
+- Use hash routing only for the filter state (`#/`, `#/active`, `#/completed`) and keep the rest of the app single-page.
+- Make issue #22 a behavior pass, not a refactor. Earlier issues should keep functions/components small so final conformance work is limited to edge cases and CSS/interaction parity.
+
+Implementation notes for later sessions
+- After issue #1, verify builds with `cargo leptos build`, not plain `cargo build`.
+- When SQLx is introduced, prefer runtime queries with `query_as` unless offline metadata is intentionally added later.
+- Health check should stay independent of Leptos rendering and return a simple 200 response for container checks.
