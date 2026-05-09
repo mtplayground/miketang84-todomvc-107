@@ -49,12 +49,28 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn HomePage() -> impl IntoView {
+    let location = use_location();
     let (todo_refresh, set_todo_refresh) = signal(0_u64);
     let todos = Resource::new(move || todo_refresh.get(), |_| list_todos(None));
     let todo_items = Signal::derive(move || {
         todos.get()
             .and_then(Result::ok)
             .unwrap_or_default()
+    });
+    let selected_filter = Signal::derive(move || filter_from_hash(&location.hash.get()));
+    let visible_todo_items = Signal::derive(move || {
+        let filter = selected_filter.get();
+
+        todo_items.with(|items| {
+            items.iter()
+                .filter(|todo| match filter {
+                    Filter::All => true,
+                    Filter::Active => !todo.completed,
+                    Filter::Completed => todo.completed,
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
     });
     let all_completed = Signal::derive(move || {
         todo_items.with(|items| !items.is_empty() && items.iter().all(|todo| todo.completed))
@@ -81,9 +97,13 @@ fn HomePage() -> impl IntoView {
                     on:change=toggle_all_todos
                 />
                 <label for="toggle-all">"Mark all as complete"</label>
-                <TodoList items=todo_items refresh_list=set_todo_refresh/>
+                <TodoList items=visible_todo_items refresh_list=set_todo_refresh/>
             </section>
-            <Footer items=todo_items refresh_list=set_todo_refresh/>
+            <Footer
+                items=todo_items
+                refresh_list=set_todo_refresh
+                selected_filter=selected_filter
+            />
         </section>
         <footer class="info">
             <p>"Double-click to edit a todo"</p>
@@ -100,8 +120,8 @@ fn HomePage() -> impl IntoView {
 fn Footer(
     #[prop(into)] items: Signal<Vec<Todo>>,
     refresh_list: WriteSignal<u64>,
+    #[prop(into)] selected_filter: Signal<Filter>,
 ) -> impl IntoView {
-    let location = use_location();
     let remaining_count = Signal::derive(move || {
         items.with(|todos| todos.iter().filter(|todo| !todo.completed).count())
     });
@@ -109,9 +129,6 @@ fn Footer(
         items.with(|todos| todos.iter().filter(|todo| todo.completed).count())
     });
     let has_completed = Signal::derive(move || completed_count.get() > 0);
-    let selected_filter = Signal::derive(move || {
-        filter_from_hash(&location.hash.get())
-    });
 
     let clear = move |_| {
         leptos::task::spawn_local(async move {
