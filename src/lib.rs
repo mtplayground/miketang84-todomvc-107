@@ -1,4 +1,6 @@
 pub mod app;
+#[cfg(feature = "ssr")]
+pub mod repository;
 pub mod todo;
 
 #[cfg(feature = "hydrate")]
