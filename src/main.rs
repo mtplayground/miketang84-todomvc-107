@@ -66,6 +66,8 @@ async fn init_database_pool() -> Result<DatabaseBootstrap, Box<dyn std::error::E
         .connect_with(connect_options)
         .await?;
 
+    sqlx::migrate!().run(&pool).await?;
+
     Ok(DatabaseBootstrap { database_path, pool })
 }
 
