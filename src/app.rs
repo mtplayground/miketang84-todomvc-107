@@ -12,8 +12,9 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <AutoReload options=options.clone() />
+                <link rel="stylesheet" href="/pkg/miketang84-todomvc-107.css"/>
                 <HydrationScripts options/>
-                <title>"ZeroClaw TodoMVC"</title>
+                <title>"TodoMVC"</title>
             </head>
             <body>
                 <App/>
@@ -37,15 +38,41 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn HomePage() -> impl IntoView {
-    let count = RwSignal::new(0);
-
     view! {
-        <section>
-            <h1>"Hello from ZeroClaw"</h1>
-            <p>"This TodoMVC app is server-rendered with Axum and hydrates in the browser."</p>
-            <button on:click=move |_| count.update(|value| *value += 1)>
-                {move || format!("Hydrated clicks: {}", count.get())}
-            </button>
+        <section class="todoapp">
+            <header class="header">
+                <h1>"todos"</h1>
+                <input
+                    class="new-todo"
+                    placeholder="What needs to be done?"
+                    autofocus
+                />
+            </header>
+            <section class="main">
+                <input id="toggle-all" class="toggle-all" type="checkbox"/>
+                <label for="toggle-all">"Mark all as complete"</label>
+                <ul class="todo-list"></ul>
+            </section>
+            <footer class="footer">
+                <span class="todo-count">
+                    <strong>"0"</strong>
+                    " item left"
+                </span>
+                <ul class="filters">
+                    <li><a class="selected" href="#/">"All"</a></li>
+                    <li><a href="#/active">"Active"</a></li>
+                    <li><a href="#/completed">"Completed"</a></li>
+                </ul>
+                <button class="clear-completed">"Clear completed"</button>
+            </footer>
         </section>
+        <footer class="info">
+            <p>"Double-click to edit a todo"</p>
+            <p>"Created with Leptos"</p>
+            <p>
+                "Part of "
+                <a href="http://todomvc.com">"TodoMVC"</a>
+            </p>
+        </footer>
     }
 }

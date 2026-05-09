@@ -49,6 +49,7 @@ panic = "abort"
 output-name = "miketang84-todomvc-107"
 site-root = "target/site"
 site-pkg-dir = "pkg"
+style-file = "style/main.css"
 site-addr = "0.0.0.0:8080"
 reload-port = 3001
 bin-features = ["ssr"]
