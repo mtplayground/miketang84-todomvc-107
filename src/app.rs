@@ -1,4 +1,4 @@
-use crate::server::todos::{add_todo, delete_todo, list_todos, toggle_todo};
+use crate::server::todos::{add_todo, delete_todo, edit_todo, list_todos, toggle_todo};
 use crate::todo::Todo;
 use leptos::prelude::*;
 use leptos_router::{
@@ -138,22 +138,37 @@ fn TodoList(
 
 #[component]
 fn TodoItem(todo: Todo, refresh_list: WriteSignal<u64>) -> impl IntoView {
-    let toggle = {
-        let todo = todo.clone();
-        move |_| {
-            let id = todo.id;
-            let completed = !todo.completed;
+    let todo_id = todo.id;
+    let todo_completed = todo.completed;
+    let original_title = todo.title.clone();
+    let input_ref = NodeRef::<leptos::html::Input>::new();
+    let (editing, set_editing) = signal(false);
+    let (draft, set_draft) = signal(todo.title.clone());
+    let (ignore_blur, set_ignore_blur) = signal(false);
 
-            leptos::task::spawn_local(async move {
-                if toggle_todo(id, completed).await.is_ok() {
-                    refresh_list.update(|value| *value += 1);
-                }
-            });
+    Effect::new(move |_| {
+        if editing.get() {
+            if let Some(input) = input_ref.get() {
+                let _ = input.focus();
+                let cursor = input.value().len() as u32;
+                let _ = input.set_selection_range(cursor, cursor);
+            }
         }
+    });
+
+    let toggle = move |_| {
+        let id = todo_id;
+        let completed = !todo_completed;
+
+        leptos::task::spawn_local(async move {
+            if toggle_todo(id, completed).await.is_ok() {
+                refresh_list.update(|value| *value += 1);
+            }
+        });
     };
 
     let destroy = move |_| {
-        let id = todo.id;
+        let id = todo_id;
 
         leptos::task::spawn_local(async move {
             if delete_todo(id).await.is_ok() {
@@ -162,7 +177,58 @@ fn TodoItem(todo: Todo, refresh_list: WriteSignal<u64>) -> impl IntoView {
         });
     };
 
-    let item_class = if todo.completed { "completed" } else { "" };
+    let save_edit = {
+        let id = todo_id;
+        let set_editing = set_editing;
+        let set_ignore_blur = set_ignore_blur;
+        move |next_title: String| {
+            leptos::task::spawn_local(async move {
+                if edit_todo(id, next_title).await.is_ok() {
+                    set_editing.set(false);
+                    set_ignore_blur.set(false);
+                    refresh_list.update(|value| *value += 1);
+                }
+            });
+        }
+    };
+
+    let start_editing = {
+        let title = original_title.clone();
+        move |_| {
+            set_draft.set(title.clone());
+            set_ignore_blur.set(false);
+            set_editing.set(true);
+        }
+    };
+
+    let on_edit_keydown = move |ev: leptos::ev::KeyboardEvent| {
+        if ev.key() == "Enter" {
+            set_ignore_blur.set(true);
+            save_edit(draft.get_untracked());
+        } else if ev.key() == "Escape" {
+            set_ignore_blur.set(true);
+            set_draft.set(original_title.clone());
+            set_editing.set(false);
+        }
+    };
+
+    let on_edit_blur = move |_| {
+        if ignore_blur.get_untracked() {
+            set_ignore_blur.set(false);
+            return;
+        }
+
+        save_edit(draft.get_untracked());
+    };
+
+    let item_class = move || {
+        match (todo_completed, editing.get()) {
+            (true, true) => "completed editing",
+            (true, false) => "completed",
+            (false, true) => "editing",
+            (false, false) => "",
+        }
+    };
 
     view! {
         <li class=item_class>
@@ -170,12 +236,20 @@ fn TodoItem(todo: Todo, refresh_list: WriteSignal<u64>) -> impl IntoView {
                 <input
                     class="toggle"
                     type="checkbox"
-                    prop:checked=todo.completed
+                    prop:checked=todo_completed
                     on:change=toggle
                 />
-                <label>{todo.title}</label>
+                <label on:dblclick=start_editing>{todo.title.clone()}</label>
                 <button class="destroy" on:click=destroy></button>
             </div>
+            <input
+                node_ref=input_ref
+                class="edit"
+                prop:value=move || draft.get()
+                on:input=move |ev| set_draft.set(event_target_value(&ev))
+                on:keydown=on_edit_keydown
+                on:blur=on_edit_blur
+            />
         </li>
     }
 }
