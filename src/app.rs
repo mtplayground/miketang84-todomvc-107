@@ -72,6 +72,9 @@ fn HomePage() -> impl IntoView {
                 .collect::<Vec<_>>()
         })
     });
+    let has_todos = Signal::derive(move || {
+        todo_items.with(|items| !items.is_empty())
+    });
     let all_completed = Signal::derive(move || {
         todo_items.with(|items| !items.is_empty() && items.iter().all(|todo| todo.completed))
     });
@@ -88,22 +91,24 @@ fn HomePage() -> impl IntoView {
     view! {
         <section class="todoapp">
             <Header refresh_list=set_todo_refresh/>
-            <section class="main">
-                <input
-                    id="toggle-all"
-                    class="toggle-all"
-                    type="checkbox"
-                    prop:checked=move || all_completed.get()
-                    on:change=toggle_all_todos
+            <Show when=move || has_todos.get()>
+                <section class="main">
+                    <input
+                        id="toggle-all"
+                        class="toggle-all"
+                        type="checkbox"
+                        prop:checked=move || all_completed.get()
+                        on:change=toggle_all_todos
+                    />
+                    <label for="toggle-all">"Mark all as complete"</label>
+                    <TodoList items=visible_todo_items refresh_list=set_todo_refresh/>
+                </section>
+                <Footer
+                    items=todo_items
+                    refresh_list=set_todo_refresh
+                    selected_filter=selected_filter
                 />
-                <label for="toggle-all">"Mark all as complete"</label>
-                <TodoList items=visible_todo_items refresh_list=set_todo_refresh/>
-            </section>
-            <Footer
-                items=todo_items
-                refresh_list=set_todo_refresh
-                selected_filter=selected_filter
-            />
+            </Show>
         </section>
         <footer class="info">
             <p>"Double-click to edit a todo"</p>
