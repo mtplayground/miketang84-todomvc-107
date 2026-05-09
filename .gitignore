@@ -1,6 +1,7 @@
 target/
 node_modules/
 .gh_token
+.env.production
 .claude/
 .database_url
 .task_id

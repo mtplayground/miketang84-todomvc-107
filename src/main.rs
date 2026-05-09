@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 #[cfg(feature = "ssr")]
 use axum::extract::FromRef;
 #[cfg(feature = "ssr")]
@@ -5,25 +7,15 @@ use axum::http::StatusCode;
 #[cfg(feature = "ssr")]
 use leptos::{config::LeptosOptions, context::provide_context};
 #[cfg(feature = "ssr")]
-use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-    SqlitePool,
-};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 #[cfg(feature = "ssr")]
-use std::{env, io, str::FromStr};
+use std::{env, io};
 
 #[cfg(feature = "ssr")]
 #[derive(Clone)]
 struct AppState {
-    database_path: String,
     leptos_options: LeptosOptions,
-    pool: SqlitePool,
-}
-
-#[cfg(feature = "ssr")]
-struct DatabaseBootstrap {
-    database_path: String,
-    pool: SqlitePool,
+    pool: PgPool,
 }
 
 #[cfg(feature = "ssr")]
@@ -38,18 +30,17 @@ impl AppState {
     async fn new(
         leptos_options: LeptosOptions,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let bootstrap = init_database_pool().await?;
+        let pool = init_database_pool().await?;
 
         Ok(Self {
-            database_path: bootstrap.database_path,
             leptos_options,
-            pool: bootstrap.pool,
+            pool,
         })
     }
 }
 
 #[cfg(feature = "ssr")]
-async fn init_database_pool() -> Result<DatabaseBootstrap, Box<dyn std::error::Error>> {
+async fn init_database_pool() -> Result<PgPool, Box<dyn std::error::Error>> {
     let database_url = env::var("DATABASE_URL").map_err(|_| {
         io::Error::new(
             io::ErrorKind::NotFound,
@@ -57,18 +48,14 @@ async fn init_database_pool() -> Result<DatabaseBootstrap, Box<dyn std::error::E
         )
     })?;
 
-    let connect_options = SqliteConnectOptions::from_str(&database_url)?
-        .create_if_missing(true);
-    let database_path = connect_options.get_filename().display().to_string();
-
-    let pool = SqlitePoolOptions::new()
+    let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect_with(connect_options)
+        .connect(&database_url)
         .await?;
 
     sqlx::migrate!().run(&pool).await?;
 
-    Ok(DatabaseBootstrap { database_path, pool })
+    Ok(pool)
 }
 
 #[cfg(feature = "ssr")]
@@ -128,7 +115,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
     let app_state = AppState::new(leptos_options.clone()).await?;
-    let database_path = app_state.database_path.clone();
     let environment = leptos_options.env.clone();
     let routes = generate_route_list(App);
     let pool = app_state.pool.clone();
@@ -149,7 +135,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!(
         site_addr = %bound_addr,
-        db_path = %database_path,
         environment = ?environment,
         "server startup complete",
     );

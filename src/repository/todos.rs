@@ -1,7 +1,7 @@
 use crate::todo::{Filter, Todo};
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 
-pub async fn list(pool: &SqlitePool) -> Result<Vec<Todo>, sqlx::Error> {
+pub async fn list(pool: &PgPool) -> Result<Vec<Todo>, sqlx::Error> {
     sqlx::query_as::<_, Todo>(
         r#"
         SELECT id, title, completed
@@ -14,7 +14,7 @@ pub async fn list(pool: &SqlitePool) -> Result<Vec<Todo>, sqlx::Error> {
 }
 
 pub async fn list_by_filter(
-    pool: &SqlitePool,
+    pool: &PgPool,
     filter: Filter,
 ) -> Result<Vec<Todo>, sqlx::Error> {
     match filter {
@@ -24,7 +24,7 @@ pub async fn list_by_filter(
                 r#"
                 SELECT id, title, completed
                 FROM todos
-                WHERE completed = 0
+                WHERE completed = FALSE
                 ORDER BY id ASC
                 "#,
             )
@@ -36,7 +36,7 @@ pub async fn list_by_filter(
                 r#"
                 SELECT id, title, completed
                 FROM todos
-                WHERE completed = 1
+                WHERE completed = TRUE
                 ORDER BY id ASC
                 "#,
             )
@@ -46,11 +46,11 @@ pub async fn list_by_filter(
     }
 }
 
-pub async fn insert(pool: &SqlitePool, title: &str) -> Result<Todo, sqlx::Error> {
+pub async fn insert(pool: &PgPool, title: &str) -> Result<Todo, sqlx::Error> {
     sqlx::query_as::<_, Todo>(
         r#"
         INSERT INTO todos (title, completed, created_at)
-        VALUES (?1, 0, CURRENT_TIMESTAMP)
+        VALUES ($1, FALSE, NOW())
         RETURNING id, title, completed
         "#,
     )
@@ -60,15 +60,15 @@ pub async fn insert(pool: &SqlitePool, title: &str) -> Result<Todo, sqlx::Error>
 }
 
 pub async fn update_title(
-    pool: &SqlitePool,
+    pool: &PgPool,
     id: i64,
     title: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         UPDATE todos
-        SET title = ?1
-        WHERE id = ?2
+        SET title = $1
+        WHERE id = $2
         "#,
     )
     .bind(title)
@@ -80,15 +80,15 @@ pub async fn update_title(
 }
 
 pub async fn set_completed(
-    pool: &SqlitePool,
+    pool: &PgPool,
     id: i64,
     completed: bool,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         UPDATE todos
-        SET completed = ?1
-        WHERE id = ?2
+        SET completed = $1
+        WHERE id = $2
         "#,
     )
     .bind(completed)
@@ -99,10 +99,7 @@ pub async fn set_completed(
     Ok(())
 }
 
-pub async fn set_all_completed(
-    pool: &SqlitePool,
-    completed: bool,
-) -> Result<u64, sqlx::Error> {
+pub async fn set_all_completed(pool: &PgPool, completed: bool) -> Result<u64, sqlx::Error> {
     let result = sqlx::query(
         r#"
         UPDATE todos
@@ -116,11 +113,11 @@ pub async fn set_all_completed(
     Ok(result.rows_affected())
 }
 
-pub async fn delete(pool: &SqlitePool, id: i64) -> Result<(), sqlx::Error> {
+pub async fn delete(pool: &PgPool, id: i64) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         DELETE FROM todos
-        WHERE id = ?1
+        WHERE id = $1
         "#,
     )
     .bind(id)
@@ -130,11 +127,11 @@ pub async fn delete(pool: &SqlitePool, id: i64) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-pub async fn delete_completed(pool: &SqlitePool) -> Result<u64, sqlx::Error> {
+pub async fn delete_completed(pool: &PgPool) -> Result<u64, sqlx::Error> {
     let result = sqlx::query(
         r#"
         DELETE FROM todos
-        WHERE completed = 1
+        WHERE completed = TRUE
         "#,
     )
     .execute(pool)
@@ -146,25 +143,26 @@ pub async fn delete_completed(pool: &SqlitePool) -> Result<u64, sqlx::Error> {
 #[cfg(all(test, feature = "ssr"))]
 mod tests {
     use super::*;
-    use sqlx::{
-        sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-        SqlitePool,
-    };
-    use std::str::FromStr;
+    use sqlx::{postgres::PgPoolOptions, PgPool};
+    use std::env;
 
-    async fn test_pool() -> Result<SqlitePool, Box<dyn std::error::Error>> {
-        let connect_options = SqliteConnectOptions::from_str("sqlite::memory:")?;
-        let pool = SqlitePoolOptions::new()
+    async fn test_pool() -> Result<PgPool, Box<dyn std::error::Error>> {
+        let database_url = env::var("TEST_DATABASE_URL")?;
+        let pool = PgPoolOptions::new()
             .max_connections(1)
-            .connect_with(connect_options)
+            .connect(&database_url)
             .await?;
 
         sqlx::migrate!().run(&pool).await?;
+        sqlx::query("TRUNCATE TABLE todos RESTART IDENTITY")
+            .execute(&pool)
+            .await?;
 
         Ok(pool)
     }
 
     #[tokio::test]
+    #[ignore = "requires TEST_DATABASE_URL pointing at a Postgres test database"]
     async fn insert_and_list_todos() -> Result<(), Box<dyn std::error::Error>> {
         let pool = test_pool().await?;
 
@@ -181,6 +179,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "requires TEST_DATABASE_URL pointing at a Postgres test database"]
     async fn list_by_filter_respects_completion_state(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let pool = test_pool().await?;
@@ -203,6 +202,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "requires TEST_DATABASE_URL pointing at a Postgres test database"]
     async fn update_and_delete_todos() -> Result<(), Box<dyn std::error::Error>> {
         let pool = test_pool().await?;
 

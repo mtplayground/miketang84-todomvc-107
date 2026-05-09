@@ -2,11 +2,11 @@ use crate::todo::{Filter, Todo};
 use leptos::prelude::*;
 
 #[cfg(feature = "ssr")]
-fn todo_pool() -> Result<sqlx::SqlitePool, ServerFnError> {
+fn todo_pool() -> Result<sqlx::PgPool, ServerFnError> {
     use leptos::context::use_context;
 
-    use_context::<sqlx::SqlitePool>()
-        .ok_or_else(|| ServerFnError::new("missing SqlitePool in server context"))
+    use_context::<sqlx::PgPool>()
+        .ok_or_else(|| ServerFnError::new("missing PgPool in server context"))
 }
 
 #[cfg(any(feature = "ssr", test))]

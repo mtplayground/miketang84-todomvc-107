@@ -2,7 +2,7 @@
 
 ## What this project is
 
-A server-rendered TodoMVC application built with Leptos and Axum, hydrated on the client, and backed by SQLite through SQLx.
+A server-rendered TodoMVC application built with Leptos and Axum, hydrated on the client, and backed by Postgres through SQLx.
 
 ## What it does
 
@@ -13,7 +13,7 @@ The app implements the standard TodoMVC flow:
 - edit todos inline with TodoMVC-style Enter, blur, and Escape behavior
 - delete individual todos and clear completed todos
 - filter by `All`, `Active`, and `Completed` using URL hashes
-- persist todos in SQLite so state survives reloads and restarts
+- persist todos in Postgres so state survives reloads and restarts
 
 ## Key features
 
@@ -21,7 +21,7 @@ The app implements the standard TodoMVC flow:
 - reactive footer with remaining-count pluralization
 - hash-based filter selection and filtered list rendering
 - health check at `GET /healthz`
-- Docker image and compose setup with a persistent volume for the SQLite database
+- Docker image and compose setup for running against an external Postgres database
 
 ## Architecture
 
@@ -30,7 +30,7 @@ The app implements the standard TodoMVC flow:
 - `src/repository/`: SQLx repository layer for todo queries and updates
 - `src/todo.rs`: shared `Todo` and `Filter` types used by SSR and CSR
 - `src/main.rs`: Axum server bootstrap, env loading, tracing, DB pool setup, and migrations
-- `migrations/`: SQLx migration files for the SQLite schema
+- `migrations/`: SQLx migration files for the Postgres schema
 
 ## Project conventions
 

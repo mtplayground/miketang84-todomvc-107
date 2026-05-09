@@ -103,12 +103,12 @@ fn HomePage() -> impl IntoView {
                     <label for="toggle-all">"Mark all as complete"</label>
                     <TodoList items=visible_todo_items refresh_list=set_todo_refresh/>
                 </section>
-                <Footer
-                    items=todo_items
-                    refresh_list=set_todo_refresh
-                    selected_filter=selected_filter
-                />
             </Show>
+            <Footer
+                items=todo_items
+                refresh_list=set_todo_refresh
+                selected_filter=selected_filter
+            />
         </section>
         <footer class="info">
             <p>"Double-click to edit a todo"</p>

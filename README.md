@@ -1,12 +1,12 @@
 # miketang84-todomvc-107
 
-TodoMVC implemented with Leptos SSR + hydration, Axum, SQLx, and SQLite.
+TodoMVC implemented with Leptos SSR + hydration, Axum, SQLx, and Postgres.
 
 ## Prerequisites
 
 - Rust toolchain with the `wasm32-unknown-unknown` target
 - `cargo-leptos`
-- SQLite runtime support
+- Postgres runtime access
 
 ## Local development
 
@@ -32,7 +32,7 @@ The server reads configuration from `.env` via `dotenvy`.
 
 | Variable | Required | Default in `.env.example` | Purpose |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | Yes | `sqlite://data/todomvc.db` | SQLite connection string used by SQLx. |
+| `DATABASE_URL` | Yes | `postgresql://postgres:postgres@127.0.0.1:5432/todomvc` | Postgres connection string used by SQLx. |
 | `LEPTOS_SITE_ADDR` | Yes | `0.0.0.0:8080` | Bind address for the Axum/Leptos server. |
 | `LEPTOS_SITE_ROOT` | Yes | `target/site` | Directory containing the generated site assets. |
 | `RUST_LOG` | No | `info` | Tracing filter for server logs. |
@@ -41,7 +41,7 @@ Notes:
 
 - For local development, `LEPTOS_SITE_ROOT=target/site` matches the `cargo-leptos` build output.
 - For the container image, the runtime value is `LEPTOS_SITE_ROOT=site` because the built assets are copied into `/app/site`.
-- `DATABASE_URL` should stay environment-driven; the app creates the SQLite file if it does not already exist.
+- `DATABASE_URL` should stay environment-driven and point at a reachable Postgres database.
 
 ## Docker
 
@@ -51,17 +51,15 @@ Build the image:
 docker build -t miketang84-todomvc-107 .
 ```
 
-Run it directly with a persistent SQLite directory:
+Run it directly against a reachable Postgres instance:
 
 ```bash
-mkdir -p data
 docker run --rm \
   -p 8080:8080 \
-  -e DATABASE_URL=sqlite://data/todomvc.db \
+  -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/todomvc \
   -e LEPTOS_SITE_ADDR=0.0.0.0:8080 \
   -e LEPTOS_SITE_ROOT=site \
   -e RUST_LOG=info \
-  -v "$(pwd)/data:/app/data" \
   miketang84-todomvc-107
 ```
 
@@ -75,7 +73,7 @@ The compose setup:
 
 - builds from the local `Dockerfile`
 - publishes `8080:8080`
-- mounts a named volume at `/app/data` for SQLite persistence
+- loads runtime configuration from `.env.production`
 
 ## TodoMVC coverage
 
@@ -97,4 +95,3 @@ Implemented today:
 Still tracked separately:
 
 - final TodoMVC spec conformance pass in issue `#22`
-
