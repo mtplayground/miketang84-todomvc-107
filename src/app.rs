@@ -1,8 +1,16 @@
-use crate::server::todos::{add_todo, delete_todo, edit_todo, list_todos, toggle_todo};
-use crate::todo::Todo;
+use crate::server::todos::{
+    add_todo,
+    clear_completed,
+    delete_todo,
+    edit_todo,
+    list_todos,
+    toggle_todo,
+};
+use crate::todo::{Filter, Todo};
 use leptos::prelude::*;
 use leptos_router::{
     components::{Route, Router, Routes},
+    hooks::use_location,
     StaticSegment,
 };
 
@@ -47,9 +55,6 @@ fn HomePage() -> impl IntoView {
             .and_then(Result::ok)
             .unwrap_or_default()
     });
-    let todo_count = move || {
-        todo_items.with(|items| items.len())
-    };
 
     view! {
         <section class="todoapp">
@@ -59,18 +64,7 @@ fn HomePage() -> impl IntoView {
                 <label for="toggle-all">"Mark all as complete"</label>
                 <TodoList items=todo_items refresh_list=set_todo_refresh/>
             </section>
-            <footer class="footer">
-                <span class="todo-count">
-                    <strong>{move || todo_count().to_string()}</strong>
-                    " item left"
-                </span>
-                <ul class="filters">
-                    <li><a class="selected" href="#/">"All"</a></li>
-                    <li><a href="#/active">"Active"</a></li>
-                    <li><a href="#/completed">"Completed"</a></li>
-                </ul>
-                <button class="clear-completed">"Clear completed"</button>
-            </footer>
+            <Footer items=todo_items refresh_list=set_todo_refresh/>
         </section>
         <footer class="info">
             <p>"Double-click to edit a todo"</p>
@@ -80,6 +74,104 @@ fn HomePage() -> impl IntoView {
                 <a href="http://todomvc.com">"TodoMVC"</a>
             </p>
         </footer>
+    }
+}
+
+#[component]
+fn Footer(
+    #[prop(into)] items: Signal<Vec<Todo>>,
+    refresh_list: WriteSignal<u64>,
+) -> impl IntoView {
+    let location = use_location();
+    let remaining_count = Signal::derive(move || {
+        items.with(|todos| todos.iter().filter(|todo| !todo.completed).count())
+    });
+    let completed_count = Signal::derive(move || {
+        items.with(|todos| todos.iter().filter(|todo| todo.completed).count())
+    });
+    let has_completed = Signal::derive(move || completed_count.get() > 0);
+    let selected_filter = Signal::derive(move || {
+        filter_from_hash(&location.hash.get())
+    });
+
+    let clear = move |_| {
+        leptos::task::spawn_local(async move {
+            if clear_completed().await.is_ok() {
+                refresh_list.update(|value| *value += 1);
+            }
+        });
+    };
+
+    view! {
+        <footer class="footer">
+            <span class="todo-count">
+                <strong>{move || remaining_count.get().to_string()}</strong>
+                {move || {
+                    if remaining_count.get() == 1 {
+                        " item left"
+                    } else {
+                        " items left"
+                    }
+                }}
+            </span>
+            <ul class="filters">
+                <li>
+                    <a
+                        class=move || {
+                            if selected_filter.get() == Filter::All {
+                                "selected"
+                            } else {
+                                ""
+                            }
+                        }
+                        href="#/"
+                    >
+                        "All"
+                    </a>
+                </li>
+                <li>
+                    <a
+                        class=move || {
+                            if selected_filter.get() == Filter::Active {
+                                "selected"
+                            } else {
+                                ""
+                            }
+                        }
+                        href="#/active"
+                    >
+                        "Active"
+                    </a>
+                </li>
+                <li>
+                    <a
+                        class=move || {
+                            if selected_filter.get() == Filter::Completed {
+                                "selected"
+                            } else {
+                                ""
+                            }
+                        }
+                        href="#/completed"
+                    >
+                        "Completed"
+                    </a>
+                </li>
+            </ul>
+            <Show when=move || has_completed.get()>
+                <button class="clear-completed" on:click=clear>
+                    "Clear completed"
+                </button>
+            </Show>
+        </footer>
+    }
+}
+
+fn filter_from_hash(hash: &str) -> Filter {
+    match hash {
+        "#/active" => Filter::Active,
+        "#/completed" => Filter::Completed,
+        _ => Filter::All,
     }
 }
 
