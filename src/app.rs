@@ -4,6 +4,7 @@ use crate::server::todos::{
     delete_todo,
     edit_todo,
     list_todos,
+    toggle_all,
     toggle_todo,
 };
 use crate::todo::{Filter, Todo};
@@ -55,12 +56,30 @@ fn HomePage() -> impl IntoView {
             .and_then(Result::ok)
             .unwrap_or_default()
     });
+    let all_completed = Signal::derive(move || {
+        todo_items.with(|items| !items.is_empty() && items.iter().all(|todo| todo.completed))
+    });
+    let toggle_all_todos = move |ev| {
+        let completed = event_target_checked(&ev);
+
+        leptos::task::spawn_local(async move {
+            if toggle_all(completed).await.is_ok() {
+                set_todo_refresh.update(|value| *value += 1);
+            }
+        });
+    };
 
     view! {
         <section class="todoapp">
             <Header refresh_list=set_todo_refresh/>
             <section class="main">
-                <input id="toggle-all" class="toggle-all" type="checkbox"/>
+                <input
+                    id="toggle-all"
+                    class="toggle-all"
+                    type="checkbox"
+                    prop:checked=move || all_completed.get()
+                    on:change=toggle_all_todos
+                />
                 <label for="toggle-all">"Mark all as complete"</label>
                 <TodoList items=todo_items refresh_list=set_todo_refresh/>
             </section>
