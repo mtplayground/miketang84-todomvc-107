@@ -13,11 +13,13 @@ The app implements the standard TodoMVC flow:
 - edit todos inline with TodoMVC-style Enter, blur, and Escape behavior
 - delete individual todos and clear completed todos
 - filter by `All`, `Active`, and `Completed` using URL hashes
+- render the filter footer even when there are zero todos, so navigation is always present
 - persist todos in Postgres so state survives reloads and restarts
 
 ## Key features
 
 - SSR first render with client hydration
+- bundled CSS served from the app's published `/pkg` assets
 - reactive footer with remaining-count pluralization
 - hash-based filter selection and filtered list rendering
 - health check at `GET /healthz`
@@ -37,4 +39,4 @@ The app implements the standard TodoMVC flow:
 - configuration comes from environment variables, with `.env.example` as the template
 - the app listens on `0.0.0.0:8080` by default
 - database access stays in the repository layer; UI mutations go through Leptos server functions
-- static assets are built and served through `cargo-leptos`
+- static assets are built and served through `cargo-leptos`, with the stylesheet published as a single CSS asset
